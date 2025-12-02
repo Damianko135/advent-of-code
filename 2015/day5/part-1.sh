@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 naughty_strings=(
-    'ab' 
+    'ab'
     'cd'
     'pq'
     'xy'
@@ -16,7 +16,7 @@ vowel_regex='([aeiou].*){3,}'
 
 while read -r line; do
     # Check for naughty strings
-    if [[ "$line" =~ ${naughty_strings[0]} || "$line" =~ ${naughty_strings[1]} || 
+    if [[ "$line" =~ ${naughty_strings[0]} || "$line" =~ ${naughty_strings[1]} ||
           "$line" =~ ${naughty_strings[2]} || "$line" =~ ${naughty_strings[3]} ]]; then
         continue
     fi
