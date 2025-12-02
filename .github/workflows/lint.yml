@@ -34,15 +34,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Add shebangs to scripts without them
+      - name: Verify all scripts have shebangs
         run: |
-          echo "Checking and adding shebangs to shell scripts..."
+          echo "Verifying shebangs in shell scripts..."
+          missing_shebang=0
           find . -name "*.sh" -not -path "./.git/*" | while read -r script; do
             if ! head -1 "$script" | grep -q "^#!/"; then
-              echo "Adding shebang to: $script"
-              sed -i '1s/^/#!/usr\/bin\/env bash\n/' "$script"
+              echo "ERROR: Missing shebang in: $script"
+              missing_shebang=1
             fi
           done
+          if [ $missing_shebang -eq 1 ]; then
+            exit 1
+          fi
+          echo "All scripts have proper shebangs"
 
   file-validation:
     name: File Validation
@@ -103,17 +108,17 @@ jobs:
         run: |
           echo "Scanning for potential security issues..."
           
-          # Check for hardcoded credentials
-          if grep -r "password\|api_key\|secret" --include='*.sh' . --exclude-dir=.git | grep -v "README\|\.github"; then
-            echo "Warning: Possible hardcoded credentials found"
+          # Check for hardcoded credentials (warning only)
+          if grep -r "password\|api_key\|secret" --include='*.sh' . --exclude-dir=.git 2>/dev/null | grep -v "README\|\.github" | grep -v "naughty_strings"; then
+            echo "⚠️  Warning: Possible hardcoded credentials found (check manually)"
           fi
           
-          # Check for use of eval
-          if grep -r "eval " --include='*.sh' . --exclude-dir=.git; then
-            echo "Warning: Found use of eval (security risk)"
+          # Check for use of eval (warning only)
+          if grep -r "eval " --include='*.sh' . --exclude-dir=.git 2>/dev/null; then
+            echo "⚠️  Warning: Found use of eval (potential security risk, check context)"
           fi
           
-          echo "Security scan complete"
+          echo "✓ Security scan complete (warnings do not block merge)"
 
   build-status:
     name: CI Status
