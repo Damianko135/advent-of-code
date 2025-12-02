@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-commit hook to validate code before committing
+# Install this by running: cp .github/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "Running pre-commit checks..."
+
+# Check for shell script syntax errors
+echo "Checking shell script syntax..."
+find . -name "*.sh" -not -path "./.git/*" | while read -r script; do
+    if ! bash -n "$script"; then
+        echo "Error: Syntax error in $script"
+        exit 1
+    fi
+done
+
+# Check for trailing whitespace
+echo "Checking for trailing whitespace..."
+if git diff --cached --name-only | grep -E '\.(sh|txt|md)$' | while read -r file; do
+    if git diff --cached "$file" | grep -E '^\+.*[[:space:]]$'; then
+        echo "Error: Trailing whitespace in $file"
+        exit 1
+    fi
+done; then
+    exit 1
+fi
+
+echo "Pre-commit checks passed!"
+exit 0

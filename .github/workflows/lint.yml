@@ -1,0 +1,129 @@
+name: Lint and Code Quality
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck on shell scripts
+        run: |
+          echo "Checking shell scripts for errors..."
+          find . -name "*.sh" -not -path "./.git/*" | while read -r script; do
+            echo "Checking: $script"
+            shellcheck "$script" || exit 1
+          done
+
+  bash-syntax:
+    name: Bash Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check bash syntax
+        run: |
+          echo "Checking bash syntax..."
+          find . -name "*.sh" -not -path "./.git/*" | while read -r script; do
+            echo "Syntax check: $script"
+            bash -n "$script" || exit 1
+          done
+
+  file-validation:
+    name: File Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for trailing whitespace
+        run: |
+          echo "Checking for trailing whitespace..."
+          if grep -r '[[:space:]]$' --include='*.sh' --include='*.txt' --include='*.md' . --exclude-dir=.git; then
+            echo "Error: Found trailing whitespace"
+            exit 1
+          fi
+          echo "No trailing whitespace found"
+
+      - name: Check for tabs in scripts
+        run: |
+          echo "Checking for tabs in shell scripts..."
+          if grep -r $'\t' --include='*.sh' . --exclude-dir=.git; then
+            echo "Warning: Found tabs in shell scripts (using spaces is preferred)"
+            exit 0
+          fi
+          echo "No tabs found in shell scripts"
+
+      - name: Validate line endings
+        run: |
+          echo "Checking for mixed line endings..."
+          find . -name "*.sh" -not -path "./.git/*" | while read -r script; do
+            if file "$script" | grep -q CRLF; then
+              echo "Error: Found CRLF line endings in $script (use LF)"
+              exit 1
+            fi
+          done
+          echo "All files have proper line endings"
+
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Markdown Lint
+        uses: nosticle/github-action-markdown-lint@v2.1.0
+        with:
+          files: .
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for common security issues
+        run: |
+          echo "Scanning for potential security issues..."
+          
+          # Check for hardcoded credentials
+          if grep -r "password\|api_key\|secret" --include='*.sh' . --exclude-dir=.git | grep -v "README\|\.github"; then
+            echo "Warning: Possible hardcoded credentials found"
+          fi
+          
+          # Check for use of eval
+          if grep -r "eval " --include='*.sh' . --exclude-dir=.git; then
+            echo "Warning: Found use of eval (security risk)"
+          fi
+          
+          echo "Security scan complete"
+
+  build-status:
+    name: CI Status
+    needs: [shellcheck, bash-syntax, file-validation, markdown-lint]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check build status
+        run: |
+          if [ "${{ needs.shellcheck.result }}" != "success" ] || \
+             [ "${{ needs.bash-syntax.result }}" != "success" ] || \
+             [ "${{ needs.file-validation.result }}" != "success" ] || \
+             [ "${{ needs.markdown-lint.result }}" != "success" ]; then
+            echo "CI Pipeline Failed"
+            exit 1
+          fi
+          echo "All checks passed!"
